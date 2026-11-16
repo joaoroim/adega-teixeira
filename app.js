@@ -79,6 +79,12 @@ CREATE INDEX IF NOT EXISTS idx_item_comanda ON item_comanda(comanda_id);
 CREATE INDEX IF NOT EXISTS idx_comanda_status ON comanda(status, fechada_em);
 `;
 
+function migrate() {
+  db.exec(SCHEMA);
+  const cols = all(`PRAGMA table_info(produto)`).map(c => c.name);
+  if (!cols.includes('foto')) db.exec(`ALTER TABLE produto ADD COLUMN foto TEXT`);
+}
+
 function all(sql, params = []) {
   const st = db.prepare(sql);
   st.bind(params);
@@ -142,6 +148,10 @@ const CATEGORIAS = [
 const catLabel = k => (CATEGORIAS.find(c => c[0] === k) || [k, k])[1];
 const PAGAMENTOS = [['pix', 'Pix'], ['cartao', 'Cartão'], ['dinheiro', 'Dinheiro']];
 const payLabel = k => (PAGAMENTOS.find(p => p[0] === k) || [k, k])[1];
+
+const thumb = p => p.foto
+  ? `<img class="thumb" src="${esc(p.foto)}" alt="" loading="lazy">`
+  : `<span class="thumb thumb-empty" aria-hidden="true">${esc((p.nome || '?').trim()[0] || '?')}</span>`;
 
 let toastTimer;
 function toast(msg) {
@@ -246,7 +256,7 @@ function viewComanda(id) {
   if (!c) return viewNotFound();
   const paga = c.status === 'paga';
   setHeader(c.nome, paga ? '#/historico' : '#/');
-  const itens = all(`SELECT i.*, p.nome, p.marca FROM item_comanda i
+  const itens = all(`SELECT i.*, p.nome, p.marca, p.foto FROM item_comanda i
                      JOIN produto p ON p.id = i.produto_id
                      WHERE i.comanda_id = ? ORDER BY i.id`, [id]);
   $view().innerHTML = `
@@ -259,7 +269,7 @@ function viewComanda(id) {
     ${paga ? '' : `<button class="btn primary" id="add">+ Adicionar item</button>`}
     <h2>Itens</h2>
     ${itens.length ? `<ul class="list">${itens.map(i => `
-      <li class="static">
+      <li class="static">${thumb(i)}
         <div class="main"><div class="name">${i.quantidade}× ${esc(i.nome)}</div>
           <div class="sub">${esc(i.marca)}${i.marca ? ' · ' : ''}${money(i.preco_unit_centavos)} cada</div></div>
         <div class="value">${money(i.subtotal_centavos)}</div>
@@ -316,7 +326,7 @@ function viewAddItem(id) {
                        ORDER BY categoria, nome`, [cat, cat, termo, termo]);
     const ul = document.getElementById('lista');
     ul.innerHTML = prods.length ? prods.map(p => `
-      <li data-id="${p.id}"><div class="main"><div class="name">${esc(p.nome)}</div>
+      <li data-id="${p.id}">${thumb(p)}<div class="main"><div class="name">${esc(p.nome)}</div>
         <div class="sub">${esc(p.marca)}${p.marca ? ' · ' : ''}${esc(catLabel(p.categoria))}</div></div>
         <div class="value">${money(p.preco_centavos)}</div></li>`).join('')
       : `<p class="empty">Nenhum produto encontrado.<br>Cadastre na aba Produtos.</p>`;
@@ -328,6 +338,7 @@ function viewAddItem(id) {
     let qtd = 1;
     $view().innerHTML = `
       <div class="selected-product">
+        ${p.foto ? `<img class="foto-grande" src="${esc(p.foto)}" alt="">` : ''}
         <div class="name">${esc(p.nome)}</div>
         <div class="muted">${esc(p.marca)}${p.marca ? ' · ' : ''}${money(p.preco_centavos)} cada</div>
       </div>
@@ -402,7 +413,7 @@ function viewProdutos() {
     <button class="btn primary" id="novo">+ Novo produto</button>
     <h2>${prods.length} produto${prods.length === 1 ? '' : 's'}</h2>
     ${prods.length ? `<ul class="list">${prods.map(p => `
-      <li data-id="${p.id}" class="${p.ativo ? '' : 'off'}"><div class="main"><div class="name">${esc(p.nome)}</div>
+      <li data-id="${p.id}" class="${p.ativo ? '' : 'off'}">${thumb(p)}<div class="main"><div class="name">${esc(p.nome)}</div>
         <div class="sub">${esc(p.marca)}${p.marca ? ' · ' : ''}${esc(catLabel(p.categoria))}${p.ativo ? '' : ' · desativado'}</div></div>
         <div class="value">${money(p.preco_centavos)}</div></li>`).join('')}</ul>`
       : `<p class="empty">Nenhum produto cadastrado.</p>`}
@@ -424,6 +435,10 @@ function viewProdutoForm(id) {
   if (id && !p) return viewNotFound();
   setHeader(p ? 'Editar produto' : 'Novo produto', '#/produtos');
   $view().innerHTML = `
+    ${p ? `<div class="foto-edit">
+      ${p.foto ? `<img class="foto-grande" src="${esc(p.foto)}" alt="">` : `<p class="muted">Sem foto</p>`}
+      <button class="btn" type="button" id="foto">${p.foto ? 'Trocar foto' : 'Buscar foto'}</button>
+    </div>` : ''}
     <form id="f" class="stack" novalidate>
       <div><label for="nome">Nome</label><input id="nome" required value="${esc(p?.nome)}" autocapitalize="words"></div>
       <div><label for="marca">Marca</label><input id="marca" value="${esc(p?.marca)}" autocapitalize="words"></div>
@@ -451,9 +466,14 @@ function viewProdutoForm(id) {
     } else {
       run(`INSERT INTO produto (nome, marca, categoria, preco_centavos, ativo) VALUES (?,?,?,?,?)`,
           [nome, marca, categoria, preco, ativo]);
+      const novoId = lastId();
+      persist(); toast('Produto salvo. Buscando foto…');
+      return go(`#/produto/${novoId}/foto`);
     }
     persist(); toast('Produto salvo'); go('#/produtos');
   };
+  const fb = document.getElementById('foto');
+  if (fb) fb.onclick = () => go(`#/produto/${p.id}/foto`);
   const t = document.getElementById('toggle');
   if (t) t.onclick = () => {
     run(`UPDATE produto SET ativo = ? WHERE id = ?`, [p.ativo ? 0 : 1, p.id]);
@@ -508,6 +528,163 @@ function viewHistorico() {
   upd();
 }
 
+/* ================= Fotos de produtos ================= */
+
+// Busca imagens em fontes abertas, sem chave de API, direto do navegador.
+async function buscarOpenFoodFacts(termo) {
+  const url = 'https://world.openfoodfacts.org/cgi/search.pl?' + new URLSearchParams({
+    search_terms: termo, search_simple: 1, action: 'process', json: 1, page_size: 24,
+    fields: 'product_name,brands,quantity,image_front_url,image_front_small_url'
+  });
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('Open Food Facts ' + r.status);
+  const j = await r.json();
+  return (j.products || [])
+    .filter(p => p.image_front_url)
+    .map(p => ({
+      src: p.image_front_url,
+      preview: p.image_front_small_url || p.image_front_url,
+      legenda: [p.brands, p.product_name, p.quantity].filter(Boolean).join(' · '),
+      fonte: 'Open Food Facts'
+    }));
+}
+
+async function buscarWikimedia(termo) {
+  const url = 'https://commons.wikimedia.org/w/api.php?' + new URLSearchParams({
+    action: 'query', generator: 'search', gsrsearch: `filetype:bitmap ${termo}`,
+    gsrnamespace: 6, gsrlimit: 12, prop: 'imageinfo', iiprop: 'url',
+    iiurlwidth: 400, format: 'json', origin: '*'
+  });
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('Wikimedia ' + r.status);
+  const j = await r.json();
+  return Object.values(j.query?.pages || {})
+    .filter(pg => pg.imageinfo?.[0]?.thumburl)
+    .map(pg => ({
+      src: pg.imageinfo[0].thumburl,
+      preview: pg.imageinfo[0].thumburl,
+      legenda: pg.title.replace(/^File:/, '').replace(/\.\w+$/, ''),
+      fonte: 'Wikimedia'
+    }));
+}
+
+async function buscarImagens(termo) {
+  const res = await Promise.allSettled([buscarOpenFoodFacts(termo), buscarWikimedia(termo)]);
+  res.filter(r => r.status === 'rejected').forEach(r => console.warn(r.reason));
+  if (res.every(r => r.status === 'rejected')) throw new Error('sem conexão');
+  const vistos = new Set();
+  return res.flatMap(r => r.status === 'fulfilled' ? r.value : [])
+    .filter(i => !vistos.has(i.src) && vistos.add(i.src));
+}
+
+// Reduz a imagem e guarda dentro do banco (funciona offline depois).
+function imagemParaDataUrl(src, max = 320) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * k);
+      c.height = Math.round(img.naturalHeight * k);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      try { resolve(c.toDataURL('image/jpeg', 0.82)); } catch (e) { reject(e); }
+    };
+    img.onerror = () => reject(new Error('falha ao carregar imagem'));
+    img.src = src;
+  });
+}
+
+function viewFoto(id) {
+  const p = one(`SELECT * FROM produto WHERE id = ?`, [id]);
+  if (!p) return viewNotFound();
+  setHeader('Foto do produto', `#/produto/${id}`);
+  let termo = [p.nome, p.marca].filter(Boolean).join(' ');
+  if (p.marca && p.nome.toLowerCase().includes(p.marca.toLowerCase())) termo = p.nome;
+
+  $view().innerHTML = `
+    <div class="selected-product"><div class="name">${esc(p.nome)}</div>
+      <div class="muted">${esc(p.marca)}</div></div>
+    <form id="bf" class="row" style="margin-top:16px">
+      <input id="termo" type="search" value="${esc(termo)}" aria-label="Termo de busca">
+      <button class="btn primary" style="flex:none;width:auto" type="submit">Buscar</button>
+    </form>
+    <p class="muted" id="status" style="margin-top:12px"></p>
+    <div class="grid" id="grid"></div>
+    <div class="bottom-actions">
+      <button class="btn" id="camera">Tirar ou escolher foto do celular</button>
+      ${p.foto ? `<button class="btn danger" id="remover">Remover foto atual</button>` : ''}
+      <button class="btn" id="pular">${p.foto ? 'Manter foto atual' : 'Pular por enquanto'}</button>
+    </div>
+    <input type="file" id="arq" accept="image/*" capture="environment" hidden>`;
+
+  const status = document.getElementById('status');
+  const grid = document.getElementById('grid');
+
+  async function salvar(dataUrl) {
+    run(`UPDATE produto SET foto = ? WHERE id = ?`, [dataUrl, id]);
+    await persist();
+    toast('Foto salva');
+    go('#/produtos');
+  }
+
+  async function escolher(src) {
+    status.textContent = 'Salvando foto…';
+    try {
+      await salvar(await imagemParaDataUrl(src));
+    } catch (e) {
+      // site não permite copiar a imagem: guarda o link (precisa de internet para exibir)
+      console.warn(e);
+      await salvar(src);
+    }
+  }
+
+  async function buscar() {
+    const t = document.getElementById('termo').value.trim();
+    if (!t) return;
+    status.textContent = 'Buscando imagens…';
+    grid.innerHTML = '';
+    try {
+      const imgs = await buscarImagens(t);
+      status.textContent = imgs.length
+        ? 'Toque na foto certa para usar:'
+        : 'Nada encontrado. Tente outro termo (ex.: só a marca) ou tire uma foto.';
+      grid.innerHTML = imgs.map((im, i) => `
+        <button class="cand" data-i="${i}" type="button">
+          <img src="${esc(im.preview)}" alt="" loading="lazy" referrerpolicy="no-referrer">
+          <span>${esc(im.legenda)}</span></button>`).join('');
+      grid.querySelectorAll('.cand').forEach(b => {
+        b.onclick = () => escolher(imgs[Number(b.dataset.i)].src);
+        b.querySelector('img').onerror = () => b.remove();
+      });
+    } catch (e) {
+      status.textContent = 'Sem internet ou busca indisponível. Você pode tirar uma foto.';
+    }
+  }
+
+  document.getElementById('bf').onsubmit = e => { e.preventDefault(); buscar(); };
+  const arq = document.getElementById('arq');
+  document.getElementById('camera').onclick = () => arq.click();
+  arq.onchange = async () => {
+    const f = arq.files[0];
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    try { await salvar(await imagemParaDataUrl(url)); }
+    catch { toast('Não consegui ler a imagem'); }
+    finally { URL.revokeObjectURL(url); }
+  };
+  const rm = document.getElementById('remover');
+  if (rm) rm.onclick = async () => {
+    run(`UPDATE produto SET foto = NULL WHERE id = ?`, [id]);
+    await persist(); toast('Foto removida'); go(`#/produto/${id}`);
+  };
+  document.getElementById('pular').onclick = () => go('#/produtos');
+  buscar();
+}
+
 function viewNotFound() {
   setHeader('Não encontrado', '#/');
   $view().innerHTML = `<p class="empty">Registro não encontrado.</p>`;
@@ -532,7 +709,7 @@ async function importarBackup(file) {
     novo.exec('SELECT 1 FROM produto LIMIT 1; SELECT 1 FROM comanda LIMIT 1;');
     db.close();
     db = novo;
-    db.exec(SCHEMA);
+    migrate();
     await persist();
     toast('Backup restaurado');
     route();
@@ -558,6 +735,7 @@ function route() {
   if (h === '#/produtos') return viewProdutos();
   if (h === '#/produto/novo') return viewProdutoForm(null);
   if ((m = h.match(/^#\/produto\/(\d+)$/))) return viewProdutoForm(Number(m[1]));
+  if ((m = h.match(/^#\/produto\/(\d+)\/foto$/))) return viewFoto(Number(m[1]));
   if (h === '#/historico') return viewHistorico();
   viewNotFound();
 }
@@ -570,7 +748,7 @@ let SQL;
     SQL = await initSqlJs({ locateFile: f => `vendor/${f}` });
     const saved = await idbGet();
     db = saved ? new SQL.Database(saved) : new SQL.Database();
-    db.exec(SCHEMA);
+    migrate();
     if (!saved) await persist();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
   } catch (e) {

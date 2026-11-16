@@ -1,4 +1,4 @@
-const CACHE = 'comandas-v1';
+const CACHE = 'comandas-v2';
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'manifest.json',
   'icon.svg', 'icon-192.png', 'icon-512.png',
