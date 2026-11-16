@@ -145,13 +145,15 @@ const CATEGORIAS = [
   ['cerveja', 'Cerveja'], ['vinho', 'Vinho'], ['destilado', 'Destilado'],
   ['petisco', 'Petisco'], ['outros', 'Outros']
 ];
+const CAT_ICON = { cerveja: 'sports_bar', vinho: 'wine_bar', destilado: 'liquor', petisco: 'tapas', outros: 'category' };
+const PAY_ICON = { pix: 'qr_code_2', cartao: 'credit_card', dinheiro: 'payments' };
 const catLabel = k => (CATEGORIAS.find(c => c[0] === k) || [k, k])[1];
 const PAGAMENTOS = [['pix', 'Pix'], ['cartao', 'Cartão'], ['dinheiro', 'Dinheiro']];
 const payLabel = k => (PAGAMENTOS.find(p => p[0] === k) || [k, k])[1];
 
 const thumb = p => p.foto
   ? `<img class="thumb" src="${esc(p.foto)}" alt="" loading="lazy">`
-  : `<span class="thumb thumb-empty" aria-hidden="true">${esc((p.nome || '?').trim()[0] || '?')}</span>`;
+  : `<span class="thumb thumb-empty" aria-hidden="true">${ic(CAT_ICON[p.categoria] || 'category')}</span>`;
 
 let toastTimer;
 function toast(msg) {
@@ -182,7 +184,7 @@ function viewAbertas() {
                     FROM comanda c JOIN cliente cl ON cl.id = c.cliente_id
                     WHERE c.status = 'aberta' ORDER BY c.aberta_em DESC`);
   $view().innerHTML = `
-    <button class="btn primary" id="nova">+ Nova comanda</button>
+    <button class="btn primary" id="nova">${ic('add')} Nova comanda</button>
     <h2>${rows.length} aberta${rows.length === 1 ? '' : 's'}</h2>
     ${rows.length ? `<ul class="list">${rows.map(r => `
       <li data-id="${r.id}">
@@ -190,7 +192,7 @@ function viewAbertas() {
           <div class="sub">Aberta ${esc(fmtDateTime(r.aberta_em).slice(11))} · ${esc(fmtPhone(r.telefone))}</div></div>
         <div class="value">${money(r.total_centavos)}</div>
       </li>`).join('')}</ul>`
-      : `<p class="empty">Nenhuma comanda aberta.</p>`}`;
+      : `<p class="empty">${ic('receipt_long', 'ic-xl')}<br>Nenhuma comanda aberta.</p>`}`;
   document.getElementById('nova').onclick = () => go('#/nova');
   $view().querySelectorAll('li[data-id]').forEach(li =>
     li.onclick = () => go(`#/comanda/${li.dataset.id}`));
@@ -256,7 +258,7 @@ function viewComanda(id) {
   if (!c) return viewNotFound();
   const paga = c.status === 'paga';
   setHeader(c.nome, paga ? '#/historico' : '#/');
-  const itens = all(`SELECT i.*, p.nome, p.marca, p.foto FROM item_comanda i
+  const itens = all(`SELECT i.*, p.nome, p.marca, p.foto, p.categoria FROM item_comanda i
                      JOIN produto p ON p.id = i.produto_id
                      WHERE i.comanda_id = ? ORDER BY i.id`, [id]);
   $view().innerHTML = `
@@ -266,18 +268,18 @@ function viewComanda(id) {
       <div class="label">${esc(fmtPhone(c.telefone))} · aberta ${esc(fmtDateTime(c.aberta_em))}
         ${paga ? `<br>Paga ${esc(fmtDateTime(c.fechada_em))} · ${esc(payLabel(c.forma_pagamento))}` : ''}</div>
     </div>
-    ${paga ? '' : `<button class="btn primary" id="add">+ Adicionar item</button>`}
+    ${paga ? '' : `<button class="btn primary" id="add">${ic('add')} Adicionar item</button>`}
     <h2>Itens</h2>
     ${itens.length ? `<ul class="list">${itens.map(i => `
       <li class="static">${thumb(i)}
         <div class="main"><div class="name">${i.quantidade}× ${esc(i.nome)}</div>
           <div class="sub">${esc(i.marca)}${i.marca ? ' · ' : ''}${money(i.preco_unit_centavos)} cada</div></div>
         <div class="value">${money(i.subtotal_centavos)}</div>
-        ${paga ? '' : `<button class="chip" data-del="${i.id}" aria-label="Remover item">✕</button>`}
+        ${paga ? '' : `<button class="chip" data-del="${i.id}" aria-label="Remover item">${ic('delete')}</button>`}
       </li>`).join('')}</ul>`
-      : `<p class="empty">Nenhum item ainda.</p>`}
+      : `<p class="empty">${ic('sports_bar', 'ic-xl')}<br>Nenhum item ainda.</p>`}
     ${paga ? '' : `<div class="bottom-actions">
-      <button class="btn" id="fechar" ${itens.length ? '' : 'disabled'}>Fechar comanda</button>
+      <button class="btn" id="fechar" ${itens.length ? '' : 'disabled'}>${ic('check_circle')} Fechar comanda</button>
       ${itens.length ? '' : `<button class="btn danger" id="cancelar">Cancelar comanda vazia</button>`}
     </div>`}`;
   if (paga) return;
@@ -309,7 +311,7 @@ function viewAddItem(id) {
       <input id="busca" type="search" placeholder="Buscar produto ou marca" value="${esc(busca)}" autocomplete="off">
       <div class="chips" style="margin-top:12px">
         <button class="chip ${cat === '' ? 'active' : ''}" data-cat="">Todos</button>
-        ${CATEGORIAS.map(([k, l]) => `<button class="chip ${cat === k ? 'active' : ''}" data-cat="${k}">${l}</button>`).join('')}
+        ${CATEGORIAS.map(([k, l]) => `<button class="chip ${cat === k ? 'active' : ''}" data-cat="${k}">${ic(CAT_ICON[k])} ${l}</button>`).join('')}
       </div>
       <ul class="list" id="lista"></ul>`;
     const inp = document.getElementById('busca');
@@ -343,12 +345,12 @@ function viewAddItem(id) {
         <div class="muted">${esc(p.marca)}${p.marca ? ' · ' : ''}${money(p.preco_centavos)} cada</div>
       </div>
       <div class="qty">
-        <button id="menos" aria-label="Diminuir">−</button>
+        <button id="menos" aria-label="Diminuir">${ic('remove')}</button>
         <output id="q">1</output>
-        <button id="mais" aria-label="Aumentar">+</button>
+        <button id="mais" aria-label="Aumentar">${ic('add')}</button>
       </div>
       <div class="total-box"><div class="label">Subtotal</div><div class="amount" id="sub"></div></div>
-      <button class="btn primary" id="ok">Adicionar à comanda</button>
+      <button class="btn primary" id="ok">${ic('add')} Adicionar à comanda</button>
       <button class="btn" id="voltar">Escolher outro produto</button>`;
     const upd = () => {
       document.getElementById('q').textContent = qtd;
@@ -386,8 +388,8 @@ function viewFechar(id) {
     <ul class="list">${itens.map(i => `<li class="static"><div class="main"><div class="name">${i.quantidade}× ${esc(i.nome)}</div></div>
       <div class="value">${money(i.subtotal_centavos)}</div></li>`).join('')}</ul>
     <h2>Forma de pagamento</h2>
-    <div class="pay">${PAGAMENTOS.map(([k, l]) => `<button data-pay="${k}">${l}</button>`).join('')}</div>
-    <button class="btn primary" id="confirmar" disabled>Confirmar pagamento</button>`;
+    <div class="pay">${PAGAMENTOS.map(([k, l]) => `<button data-pay="${k}">${ic(PAY_ICON[k], 'ic-lg')}<span>${l}</span></button>`).join('')}</div>
+    <button class="btn primary" id="confirmar" disabled>${ic('check_circle')} Confirmar pagamento</button>`;
   const conf = document.getElementById('confirmar');
   $view().querySelectorAll('[data-pay]').forEach(b => b.onclick = () => {
     forma = b.dataset.pay;
@@ -410,17 +412,17 @@ function viewProdutos() {
   setHeader('Produtos');
   const prods = all(`SELECT * FROM produto ORDER BY ativo DESC, categoria, nome`);
   $view().innerHTML = `
-    <button class="btn primary" id="novo">+ Novo produto</button>
+    <button class="btn primary" id="novo">${ic('add')} Novo produto</button>
     <h2>${prods.length} produto${prods.length === 1 ? '' : 's'}</h2>
     ${prods.length ? `<ul class="list">${prods.map(p => `
       <li data-id="${p.id}" class="${p.ativo ? '' : 'off'}">${thumb(p)}<div class="main"><div class="name">${esc(p.nome)}</div>
         <div class="sub">${esc(p.marca)}${p.marca ? ' · ' : ''}${esc(catLabel(p.categoria))}${p.ativo ? '' : ' · desativado'}</div></div>
         <div class="value">${money(p.preco_centavos)}</div></li>`).join('')}</ul>`
-      : `<p class="empty">Nenhum produto cadastrado.</p>`}
+      : `<p class="empty">${ic('inventory_2', 'ic-xl')}<br>Nenhum produto cadastrado.</p>`}
     <h2>Backup dos dados</h2>
     <p class="muted">Os dados ficam só neste aparelho. Faça backup de vez em quando.</p>
-    <button class="btn" id="exportar">Baixar backup</button>
-    <button class="btn" id="importar">Restaurar backup</button>
+    <button class="btn" id="exportar">${ic('download')} Baixar backup</button>
+    <button class="btn" id="importar">${ic('upload')} Restaurar backup</button>
     <input type="file" id="arquivo" accept=".sqlite,.db,application/octet-stream" hidden>`;
   document.getElementById('novo').onclick = () => go('#/produto/novo');
   $view().querySelectorAll('li[data-id]').forEach(li => li.onclick = () => go(`#/produto/${li.dataset.id}`));
@@ -437,7 +439,7 @@ function viewProdutoForm(id) {
   $view().innerHTML = `
     ${p ? `<div class="foto-edit">
       ${p.foto ? `<img class="foto-grande" src="${esc(p.foto)}" alt="">` : `<p class="muted">Sem foto</p>`}
-      <button class="btn" type="button" id="foto">${p.foto ? 'Trocar foto' : 'Buscar foto'}</button>
+      <button class="btn" type="button" id="foto">${ic('photo_camera')} ${p.foto ? 'Trocar foto' : 'Buscar foto'}</button>
     </div>` : ''}
     <form id="f" class="stack" novalidate>
       <div><label for="nome">Nome</label><input id="nome" required value="${esc(p?.nome)}" autocapitalize="words"></div>
@@ -520,7 +522,7 @@ function viewHistorico() {
         <li data-id="${r.id}"><div class="main"><div class="name">${esc(r.nome)}</div>
           <div class="sub">${esc(fmtDateTime(r.fechada_em))} · ${esc(payLabel(r.forma_pagamento))}</div></div>
           <div class="value">${money(r.total_centavos)}</div></li>`).join('')}</ul>`
-        : `<p class="empty">Nenhuma comanda paga nesse filtro.</p>`}`;
+        : `<p class="empty">${ic('history', 'ic-xl')}<br>Nenhuma comanda paga nesse filtro.</p>`}`;
     document.querySelectorAll('#res li[data-id]').forEach(li => li.onclick = () => go(`#/comanda/${li.dataset.id}`));
   };
   de.onchange = ate.onchange = upd;
@@ -610,12 +612,12 @@ function viewFoto(id) {
       <div class="muted">${esc(p.marca)}</div></div>
     <form id="bf" class="row" style="margin-top:16px">
       <input id="termo" type="search" value="${esc(termo)}" aria-label="Termo de busca">
-      <button class="btn primary" style="flex:none;width:auto" type="submit">Buscar</button>
+      <button class="btn primary" style="flex:none;width:auto" type="submit" aria-label="Buscar">${ic('search')}</button>
     </form>
     <p class="muted" id="status" style="margin-top:12px"></p>
     <div class="grid" id="grid"></div>
     <div class="bottom-actions">
-      <button class="btn" id="camera">Tirar ou escolher foto do celular</button>
+      <button class="btn" id="camera">${ic('photo_camera')} Tirar ou escolher foto do celular</button>
       ${p.foto ? `<button class="btn danger" id="remover">Remover foto atual</button>` : ''}
       <button class="btn" id="pular">${p.foto ? 'Manter foto atual' : 'Pular por enquanto'}</button>
     </div>
@@ -756,7 +758,12 @@ let SQL;
     $view().innerHTML = `<p class="empty">Erro ao abrir o banco de dados.<br>${esc(e.message)}</p>`;
     return;
   }
-  document.querySelectorAll('.tabbar button').forEach(b => b.onclick = () => go(b.dataset.route));
+  const TAB_ICON = { '#/': 'receipt_long', '#/produtos': 'inventory_2', '#/historico': 'history' };
+  document.querySelectorAll('.tabbar button').forEach(b => {
+    b.innerHTML = `${ic(TAB_ICON[b.dataset.route])}<span>${b.textContent}</span>`;
+    b.onclick = () => go(b.dataset.route);
+  });
+  document.getElementById('back').innerHTML = ic('arrow_back_ios_new');
   window.addEventListener('hashchange', route);
   route();
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {

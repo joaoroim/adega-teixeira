@@ -1,8 +1,8 @@
-const CACHE = 'comandas-v2';
+const CACHE = 'comandas-v3';
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'manifest.json',
   'icon.svg', 'icon-192.png', 'icon-512.png',
-  'vendor/sql-wasm.js', 'vendor/sql-wasm.wasm'
+  'icons.js', 'vendor/sql-wasm.js', 'vendor/sql-wasm.wasm'
 ];
 
 self.addEventListener('install', e => {
