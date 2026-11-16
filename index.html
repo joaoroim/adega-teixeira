@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Comandas Adega</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <button id="back" class="icon-btn" aria-label="Voltar" hidden>‹</button>
+  <h1 id="title">Comandas</h1>
+</header>
+<main id="view"><p class="muted center">Carregando…</p></main>
+<nav class="tabbar">
+  <button data-route="#/">Abertas</button>
+  <button data-route="#/produtos">Produtos</button>
+  <button data-route="#/historico">Histórico</button>
+</nav>
+<div id="toast" role="status"></div>
+<script src="vendor/sql-wasm.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
