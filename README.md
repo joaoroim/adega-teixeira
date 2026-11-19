@@ -1,6 +1,6 @@
 # Comandas Adega
 
-App web (PWA) para controle de comandas de adega. Fundo preto, mobile first, funciona offline.
+App web (PWA) para comandas e venda direta de adega. Sem cadastro de produtos: o produto e o valor são digitados na hora e o app lembra para sugerir depois. Fundo preto, mobile first, funciona offline.
 
 - Banco SQLite rodando no navegador (sql.js), salvo no próprio aparelho (IndexedDB).
 - Backup/restauração do arquivo `.sqlite` na aba **Produtos**.

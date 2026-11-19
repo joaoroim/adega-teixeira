@@ -125,32 +125,6 @@ h2 { font-size: 18px; margin: 24px 0 10px; }
 }
 #toast.show { opacity: 1; }
 
-/* Fotos */
-.thumb {
-  flex: none; width: 48px; height: 48px; border-radius: 10px;
-  object-fit: contain; background: #fff;
-}
-.thumb-empty {
-  display: grid; place-items: center; background: var(--line);
-  color: var(--muted); font-weight: 700; text-transform: uppercase;
-}
-.list li .main { flex: 1; }
-.foto-grande {
-  display: block; width: 140px; height: 140px; margin: 0 auto 12px;
-  object-fit: contain; background: #fff; border-radius: var(--radius);
-}
-.foto-edit { text-align: center; margin-bottom: 18px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
-.cand {
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 8px; cursor: pointer; text-align: center;
-}
-.cand img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; border-radius: 10px; }
-.cand span {
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-  font-size: 13px; color: var(--muted); margin-top: 6px;
-}
-
 /* Ícones (Material Symbols) */
 .ic { width: 24px; height: 24px; fill: currentColor; flex: none; vertical-align: middle; }
 .ic-lg { width: 28px; height: 28px; }
@@ -166,3 +140,30 @@ h2 { font-size: 18px; margin: 24px 0 10px; }
 .qty button .ic { width: 32px; height: 32px; }
 .pay button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 76px; }
 .thumb-empty .ic { width: 26px; height: 26px; }
+
+/* Lançar item */
+.card { background: var(--surface); border-radius: var(--radius); padding: 16px; }
+.card input { background: var(--bg); }
+.sug-wrap { position: relative; }
+.sug:empty { display: none; }
+.sug { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.sug-item { display: flex; gap: 6px; }
+.sug-pick {
+  flex: 1; display: flex; justify-content: space-between; gap: 10px; align-items: center;
+  min-height: 48px; padding: 8px 14px; border-radius: 12px; cursor: pointer;
+  background: var(--bg); border: 1px solid var(--line); text-align: left;
+}
+.sug-pick b { color: var(--accent); white-space: nowrap; }
+.sug-del {
+  flex: none; width: 48px; border-radius: 12px; background: var(--bg);
+  border: 1px solid var(--line); color: var(--muted); display: grid; place-items: center; cursor: pointer;
+}
+.sug-del .ic { width: 20px; height: 20px; }
+.qty.small { margin: 0; gap: 0; justify-content: space-between; min-height: 54px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 3px; }
+.qty.small button { width: 46px; height: 46px; border: 0; background: var(--surface); }
+.qty.small button .ic { width: 24px; height: 24px; }
+.qty.small output { font-size: 22px; min-width: 0; }
+.row > div { min-width: 0; }
+
+[hidden] { display: none !important; }
